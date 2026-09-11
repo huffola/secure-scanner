@@ -24,7 +24,7 @@
   .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
   h2{font-size:15px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
   label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-  input[type=text]{width:100%;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:8px}
+  input[type=text],input[type=password]{width:100%;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:8px}
   .btn{background:var(--accent);color:#fff;border:0;padding:11px 16px;font-size:15px;border-radius:8px;cursor:pointer;font-weight:600}
   .btn.sec{background:#eaeef2;color:var(--ink)}
   .btn.danger{background:var(--no)}
@@ -37,24 +37,23 @@
   .pill.ok{background:var(--ok-bg);color:var(--ok)}
   .pill.no{background:var(--no-bg);color:var(--no)}
   .muted{color:var(--muted);font-size:13px}
-  #reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:240px}
-  .result{border-radius:14px;padding:26px 18px;text-align:center;margin-bottom:14px;display:none}
+  #reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:240px;display:none;margin-top:12px}
+  .result{border-radius:14px;padding:34px 18px;text-align:center;margin-bottom:14px;display:none}
   .result.show{display:block;animation:pop .18s ease}
   @keyframes pop{from{transform:scale(.96);opacity:.4}to{transform:scale(1);opacity:1}}
   .result.ok{background:var(--ok-bg);border:2px solid var(--ok)}
   .result.no{background:var(--no-bg);border:2px solid var(--no)}
-  .result .big{font-size:34px;font-weight:800;letter-spacing:.02em}
+  .result .big{font-size:40px;font-weight:800;letter-spacing:.02em}
   .result.ok .big{color:var(--ok)}
   .result.no .big{color:var(--no)}
-  .result .name{font-size:22px;font-weight:600;margin-top:6px}
+  .result .name{font-size:24px;font-weight:600;margin-top:6px}
   .result .eid{font-size:14px;color:var(--muted);margin-top:6px}
-  .manual{margin-top:12px}
-  .warn{background:#fff8c5;border:1px solid #eac54f;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  #scanInput{font-size:22px;text-align:center;letter-spacing:.05em;padding:16px}
   .count{font-weight:700}
-  details summary{cursor:pointer;font-weight:600;font-size:14px}
-  textarea{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:10px}
   .qrprint{display:inline-block;margin:8px;text-align:center;font-size:12px}
   .qrprint canvas,.qrprint img{display:block}
+  #adminTabBtn{display:none}
+  .sync-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:#eaeef2;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -62,8 +61,10 @@
   <h1>🔒 Secure Area Access</h1>
   <div class="tabs">
     <button id="tabScan" class="active" onclick="show('scan')">Scan</button>
-    <button id="tabAdmin" onclick="show('admin')">Admin</button>
     <button id="tabLog" onclick="show('log')">Log</button>
+    <button id="adminTabBtn" onclick="show('admin')">Admin</button>
+    <button id="lockBtn" onclick="adminLogout()" style="display:none;background:#57606a">🔓 Lock</button>
+    <button id="loginBtn" onclick="adminLogin()">Admin login</button>
   </div>
 </header>
 
@@ -72,149 +73,122 @@
   <section id="scan" class="view active">
     <div class="card">
       <div id="result" class="result"><div class="big"></div><div class="name"></div><div class="eid"></div></div>
+      <label>Scan or type an EID</label>
+      <input type="text" id="scanInput" placeholder="Waiting for scan…" autocomplete="off" autocapitalize="off"
+             autocorrect="off" spellcheck="false" inputmode="numeric"
+             onkeydown="if(event.key==='Enter'){var v=this.value.trim();this.value='';checkEid(v);}">
+      <div class="row" style="margin-top:12px;align-items:center">
+        <span class="muted">Allow-list: <span class="count" id="scanCount">0</span> people <span id="srcTag" class="sync-badge"></span></span>
+        <span style="flex:1"></span>
+        <button class="btn sec" style="padding:6px 12px;font-size:13px" onclick="fetchRemote(true)">🔄 Refresh now</button>
+      </div>
       <div id="reader"></div>
-      <div class="row" style="margin-top:12px">
-        <button class="btn" id="startBtn" onclick="startScan()">▶ Start Camera</button>
-        <button class="btn sec" id="stopBtn" onclick="stopScan()">⏸ Stop</button>
-      </div>
-      <div class="manual">
-        <label>Or type / USB-scan the EID here</label>
-        <div class="row">
-          <input type="text" id="manualEid" placeholder="Enter EID" inputmode="numeric"
-                 onkeydown="if(event.key==='Enter'){checkEid(this.value.trim());this.value='';}">
-          <button class="btn sec" onclick="var i=document.getElementById('manualEid');checkEid(i.value.trim());i.value='';">Check</button>
-        </div>
-        <p class="muted">Allow-list currently holds <span class="count" id="scanCount">0</span> people. <span id="srcTag" class="muted"></span></p>
-        <button class="btn sec" style="padding:6px 12px;font-size:13px" onclick="fetchRemote(true)">🔄 Refresh list from shared source</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= ADMIN VIEW ================= -->
-  <section id="admin" class="view">
-    <div class="card">
-      <h2>Shared list source (network)</h2>
-      <p class="muted">Paste the published <b>CSV link</b> of your shared Excel / SharePoint / Google Sheet (columns: Name, EID). The scanner pulls the current list from here. Leaders edit the spreadsheet; devices refresh to get updates.</p>
-      <label>CSV URL <span class="muted">(pre-filled — leave as-is)</span></label>
-      <input type="text" id="csvUrl" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQBf8yTN3G2FKZhe3-xmZullVfzRBQ8jS0V6QY1uZ0aobO1u0fBBFzRdBvNFmxCOnKC8PSb5oz_TOnh/pub?output=csv">      <div class="row" style="margin-top:10px">
-        <button class="btn" onclick="saveCsvUrl();fetchRemote(true)">💾 Save &amp; refresh now</button>
-        <button class="btn sec" onclick="fetchRemote(true)">🔄 Refresh list</button>
-      </div>
-      <label style="margin-top:12px"><input type="checkbox" id="autoRefresh" onchange="saveCsvUrl()"> Auto-refresh every
-        <select id="autoMins" onchange="saveCsvUrl()" style="font-size:15px;padding:4px">
-          <option value="1">1</option><option value="2">2</option><option value="5" selected>5</option><option value="10">10</option>
-        </select> min</label>
-      <p class="muted" id="remoteStatus">Not connected — using local list.</p>
-    </div>
-
-    <div class="card">
-      <h2>Add employee (local, this device)</h2>
-      <label>Employee name</label>
-      <input type="text" id="addName" placeholder="First Last">
-      <label>EID #</label>
-      <input type="text" id="addEid" placeholder="e.g. 088836" inputmode="numeric"
-             onkeydown="if(event.key==='Enter'){addPerson();}">
-      <button class="btn wide" onclick="addPerson()">+ Add to allow-list</button>
-    </div>
-
-    <div class="card">
-      <h2>Allow-list (<span id="listCount">0</span>)</h2>
-      <div class="row" style="margin-bottom:10px">
-        <input type="text" id="search" placeholder="Filter by name or EID" oninput="renderList()">
-      </div>
-      <table><thead><tr><th>Name</th><th>EID</th><th></th><th></th></tr></thead>
-      <tbody id="listBody"></tbody></table>
-    </div>
-
-    <div class="card">
-      <h2>Print QR badges</h2>
-      <p class="muted">Generate a printable QR sheet of every EID on the list (guards scan these). Prints EID + name under each code.</p>
-      <button class="btn sec" onclick="printQRs()">🖨 Print QR sheet</button>
-    </div>
-
-    <div class="card">
-      <h2>Share the list (no server needed)</h2>
-      <p class="muted">The list lives on THIS device. To put it on the guard's iPad, export it here and open the file there — or copy the sync code and paste it on the other device.</p>
-      <div class="row">
-        <button class="btn sec" onclick="exportList()">⬇ Export list file</button>
-        <button class="btn sec" onclick="document.getElementById('importFile').click()">⬆ Import list file</button>
-        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importList(event)">
-      </div>
-      <details style="margin-top:14px">
-        <summary>Sync by code (copy / paste)</summary>
-        <p class="muted">Copy this on the leader device, paste on the guard device, press Load.</p>
-        <textarea id="syncBox" readonly onclick="this.select()"></textarea>
-        <div class="row" style="margin-top:8px">
-          <button class="btn sec" onclick="refreshSync()">Copy current list</button>
-          <button class="btn" onclick="loadSync()">Load pasted list</button>
-        </div>
-      </details>
+      <p class="muted" id="camNote" style="display:none"></p>
     </div>
   </section>
 
   <!-- ================= LOG VIEW ================= -->
   <section id="log" class="view">
     <div class="card">
-      <h2>Scan log (<span id="logCount">0</span>)</h2>
+      <h2>Scan log — this device (<span id="logCount">0</span>)</h2>
+      <p class="muted">Every scan also posts to the Google Sheet <b>Log</b> tab when online. This local copy is a backup. <span id="cloudLogState"></span></p>
       <div class="row" style="margin-bottom:10px">
         <button class="btn sec" onclick="exportLog()">⬇ Export CSV</button>
-        <button class="btn danger" onclick="clearLog()">Clear log</button>
+        <button class="btn danger" onclick="clearLog()">Clear local log</button>
       </div>
-      <table><thead><tr><th>Time</th><th>EID</th><th>Name</th><th>Result</th></tr></thead>
+      <table><thead><tr><th>Time</th><th>EID</th><th>Name</th><th>Result</th><th>Synced</th></tr></thead>
       <tbody id="logBody"></tbody></table>
+    </div>
+  </section>
+
+  <!-- ================= ADMIN VIEW (gated) ================= -->
+  <section id="admin" class="view">
+    <div class="card">
+      <h2>Allow-list from shared sheet (<span id="listCount">0</span>)</h2>
+      <p class="muted" id="remoteStatus">…</p>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="search" placeholder="Filter by name or EID" oninput="renderList()">
+        <button class="btn sec" onclick="fetchRemote(true)">🔄 Refresh</button>
+      </div>
+      <table><thead><tr><th>Name</th><th>EID</th><th>QR</th></tr></thead>
+      <tbody id="listBody"></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>Print QR badges</h2>
+      <p class="muted">Printable QR sheet of every EID on the list. Prints EID + name under each code.</p>
+      <button class="btn sec" onclick="printQRs()">🖨 Print QR sheet</button>
+    </div>
+
+    <div class="card">
+      <h2>Settings</h2>
+      <p class="muted">List source and log destination are configured in the app. Auto-refresh: every <b id="minsLabel">1</b> min.</p>
+      <p class="muted" id="cfgSummary"></p>
     </div>
   </section>
 </main>
 
-<!-- Embedded QR scanner (html5-qrcode) and QR generator (qrcodejs) -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
-const LS_LIST='sac_allowlist_v1', LS_LOG='sac_scanlog_v1', LS_REMOTE='sac_remotecache_v1', LS_CFG='sac_cfg_v1';
-// Hardcoded shared allow-list (Google Sheet published as CSV). Devices use this out of the box.
-const DEFAULT_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQBf8yTN3G2FKZhe3-xmZullVfzRBQ8jS0V6QY1uZ0aobO1u0fBBFzRdBvNFmxCOnKC8PSb5oz_TOnh/pub?output=csv';
-let list = load(LS_LIST, []);        // local additions [{name, eid}]
-let remoteList = load(LS_REMOTE, []); // cached copy of shared spreadsheet [{name, eid}]
-let log  = load(LS_LOG, []);         // [{ts, eid, name, ok}]
-let cfg  = load(LS_CFG, {csvUrl:DEFAULT_CSV_URL,auto:true,mins:5});
-if(!cfg.csvUrl){cfg.csvUrl=DEFAULT_CSV_URL;cfg.auto=true;} // heal a blank saved url
+/* ============================================================
+   CONFIG — edit these three constants
+   ============================================================ */
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRa_BR3J-4dt3KjDW9CxEzK44azE8oknmnp9segMnDyXcWqK34yRPf3J_N_-Tes37W9Xtn4A8pQphtO/pub?gid=0&single=true&output=csv';
+const LOG_POST_URL = 'https://script.google.com/macros/s/AKfycbwZZ_oRc4Wb7S0JDh6WzXkNPWOLdgYGue4Rbe7C-U88fBWCYZUjR8j6WtrCGMwLzmoMgA/exec'; // ctdimeg Apps Script Web App — writes to the 'Log' tab
+const REFRESH_MINS = 1;
+
+// Admin credentials (client-side gate; not real security — see notes).
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'Hoosier26$';
+/* ============================================================ */
+
+const LS_LOG='sac_scanlog_v1', LS_REMOTE='sac_remotecache_v1', LS_ADMIN='sac_admin_ok';
+let remoteList = load(LS_REMOTE, []);   // [{name, eid}] from the sheet
+let log  = load(LS_LOG, []);            // [{ts, eid, name, ok, synced}]
 let scanner=null, lastScanTs=0, lastScanVal='', autoTimer=null;
 
 function load(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}}
-function save(){localStorage.setItem(LS_LIST,JSON.stringify(list));localStorage.setItem(LS_LOG,JSON.stringify(log));
-  localStorage.setItem(LS_REMOTE,JSON.stringify(remoteList));localStorage.setItem(LS_CFG,JSON.stringify(cfg));}
+function saveLog(){localStorage.setItem(LS_LOG,JSON.stringify(log));}
+function saveRemote(){localStorage.setItem(LS_REMOTE,JSON.stringify(remoteList));}
 function normEid(v){return String(v||'').replace(/[^0-9a-zA-Z]/g,'').toUpperCase();}
-// combined allow-list = shared spreadsheet + local additions (deduped by EID, remote wins name)
-function allowList(){const m=new Map();list.forEach(p=>m.set(normEid(p.eid),p.name));remoteList.forEach(p=>m.set(normEid(p.eid),p.name));
-  return [...m].map(([eid,name])=>({eid,name}));}
-function findEid(eid){eid=normEid(eid);const p=allowList().find(x=>x.eid===eid);return p||null;}
+function findEid(eid){eid=normEid(eid);return remoteList.find(x=>normEid(x.eid)===eid)||null;}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ---------- ADMIN GATE ---------- */
+function isAdmin(){return sessionStorage.getItem(LS_ADMIN)==='1';}
+function adminLogin(){
+  const u=prompt('Admin username:'); if(u===null)return;
+  const p=prompt('Admin password:'); if(p===null)return;
+  if(u===ADMIN_USER && p===ADMIN_PASS){sessionStorage.setItem(LS_ADMIN,'1');applyAdminUI();show('admin');}
+  else alert('Incorrect username or password.');
+}
+function adminLogout(){sessionStorage.removeItem(LS_ADMIN);applyAdminUI();show('scan');}
+function applyAdminUI(){
+  const on=isAdmin();
+  document.getElementById('adminTabBtn').style.display=on?'':'none';
+  document.getElementById('lockBtn').style.display=on?'':'none';
+  document.getElementById('loginBtn').style.display=on?'none':'';
+}
 
 /* ---------- REMOTE SHARED LIST ---------- */
-function saveCsvUrl(){cfg.csvUrl=document.getElementById('csvUrl').value.trim();
-  cfg.auto=document.getElementById('autoRefresh').checked;cfg.mins=+document.getElementById('autoMins').value;
-  save();armAuto();}
-function armAuto(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;}
-  if(cfg.auto&&cfg.csvUrl){autoTimer=setInterval(()=>fetchRemote(false),cfg.mins*60000);}}
-function setStatus(msg){const e=document.getElementById('remoteStatus');if(e)e.textContent=msg;}
+function armAuto(){if(autoTimer)clearInterval(autoTimer);autoTimer=setInterval(()=>fetchRemote(false),REFRESH_MINS*60000);}
+function setStatus(m){const e=document.getElementById('remoteStatus');if(e)e.textContent=m;}
 async function fetchRemote(loud){
-  if(!cfg.csvUrl){if(loud)alert('Paste a published CSV link first (Admin → Shared list source).');return;}
   setStatus('Refreshing…');
   try{
-    const res=await fetch(cfg.csvUrl,{cache:'no-store'});
+    const res=await fetch(CSV_URL,{cache:'no-store'});
     if(!res.ok)throw new Error('HTTP '+res.status);
-    const text=await res.text();
-    const parsed=parseCsv(text);
-    if(!parsed.length)throw new Error('No Name/EID rows found — check the columns.');
-    remoteList=parsed; save();
-    const t=new Date().toLocaleTimeString();
-    setStatus('✓ Loaded '+parsed.length+' from shared source at '+t);
+    const parsed=parseCsv(await res.text());
+    if(!parsed.length)throw new Error('No Name/EID rows found');
+    remoteList=parsed; saveRemote();
+    setStatus('✓ '+parsed.length+' loaded from shared sheet at '+new Date().toLocaleTimeString());
     renderList(); updateCounts();
   }catch(e){
-    setStatus('⚠ Could not refresh ('+e.message+'). Using last cached list ('+remoteList.length+').');
-    if(loud)alert('Refresh failed: '+e.message+'\n\nUsing the last cached list so scanning still works.\n\nTip: the link must be a PUBLISHED CSV (not a normal SharePoint document link), or CORS will block it.');
+    setStatus('⚠ Could not refresh ('+e.message+'). Using cached list ('+remoteList.length+').');
+    if(loud)alert('Refresh failed: '+e.message+'\nUsing the last cached list so scanning still works.');
   }
 }
-// Minimal CSV parser: finds Name & EID columns by header, tolerant of quotes/commas
 function parseCsv(text){
   const rows=[];let i=0,f='',row=[],q=false;
   const push=()=>{row.push(f);f='';};const eol=()=>{push();rows.push(row);row=[];};
@@ -226,83 +200,56 @@ function parseCsv(text){
   const hdr=rows[0].map(h=>h.trim().toLowerCase());
   let ni=hdr.findIndex(h=>h==='name'||h.includes('name'));
   let ei=hdr.findIndex(h=>h==='eid'||h.includes('eid')||h.includes('employee'));
-  // if no recognizable header, assume col0=name col1=eid and treat row0 as data
-  let start=1;
-  if(ni<0&&ei<0){ni=0;ei=1;start=0;}
+  let start=1; if(ni<0&&ei<0){ni=0;ei=1;start=0;}
   const out=[];
   for(let r=start;r<rows.length;r++){const rr=rows[r];if(!rr||rr.every(x=>!String(x).trim()))continue;
     const name=(rr[ni]||'').trim();const eid=normEid(rr[ei]||'');if(eid&&name)out.push({name,eid});}
   return out;
 }
 
+/* ---------- NAV ---------- */
 function show(v){
+  if(v==='admin' && !isAdmin()){adminLogin();return;}
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.getElementById(v).classList.add('active');
-  ['scan','admin','log'].forEach(t=>document.getElementById('tab'+t[0].toUpperCase()+t.slice(1)).classList.remove('active'));
-  document.getElementById('tab'+v[0].toUpperCase()+v.slice(1)).classList.add('active');
-  if(v!=='scan') stopScan();
-  if(v==='admin') renderList();
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  ({scan:'tabScan',log:'tabLog',admin:'adminTabBtn'})[v] && document.getElementById(({scan:'tabScan',log:'tabLog',admin:'adminTabBtn'})[v]).classList.add('active');
+  if(v==='admin'){renderList();fetchRemote(false);}
   if(v==='log') renderLog();
+  if(v==='scan') focusScan();
 }
+function focusScan(){setTimeout(()=>{const i=document.getElementById('scanInput');if(i)i.focus();},50);}
 
-/* ---------- ADMIN ---------- */
-function addPerson(){
-  const name=document.getElementById('addName').value.trim();
-  const eid=normEid(document.getElementById('addEid').value);
-  if(!name||!eid){alert('Enter both a name and an EID.');return;}
-  const dup=findEid(eid); if(dup){alert('That EID is already allowed ('+dup.name+').');return;}
-  list.push({name,eid}); save();
-  document.getElementById('addName').value='';document.getElementById('addEid').value='';
-  document.getElementById('addName').focus();
-  renderList(); updateCounts();
-}
-function removePerson(eid){
-  if(!confirm('Remove this person from the allow-list?'))return;
-  list=list.filter(p=>p.eid!==eid); save(); renderList(); updateCounts();
-}
+/* ---------- ADMIN LIST ---------- */
 function renderList(){
   const q=normEid(document.getElementById('search')?.value||'');
   const qn=(document.getElementById('search')?.value||'').toLowerCase().trim();
   const tb=document.getElementById('listBody'); if(!tb)return; tb.innerHTML='';
-  const remoteEids=new Set(remoteList.map(p=>normEid(p.eid)));
-  allowList().slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
-    if(q&&!p.eid.includes(q)&&!p.name.toLowerCase().includes(qn))return;
-    const isRemote=remoteEids.has(normEid(p.eid));
+  remoteList.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    if(q&&!normEid(p.eid).includes(q)&&!p.name.toLowerCase().includes(qn))return;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${esc(p.name)} ${isRemote?'<span class="pill ok" style="font-size:10px">shared</span>':''}</td><td>${esc(p.eid)}</td>
-      <td><button class="btn sec" style="padding:4px 10px;font-size:12px" onclick="qrOne('${esc(p.eid)}','${esc(p.name)}')">QR</button></td>
-      <td>${isRemote?'':`<button class="btn danger" style="padding:4px 10px;font-size:12px" onclick="removePerson('${esc(p.eid)}')">✕</button>`}</td>`;
+    tr.innerHTML=`<td>${esc(p.name)}</td><td>${esc(p.eid)}</td>
+      <td><button class="btn sec" style="padding:4px 10px;font-size:12px" onclick="qrOne('${esc(normEid(p.eid))}','${esc(p.name)}')">QR</button></td>`;
     tb.appendChild(tr);
   });
-  document.getElementById('listCount').textContent=allowList().length;
+  const lc=document.getElementById('listCount');if(lc)lc.textContent=remoteList.length;
 }
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-/* ---------- SCAN ---------- */
-function startScan(){
-  document.getElementById('result').classList.remove('show');
-  if(scanner){return;}
-  scanner=new Html5Qrcode("reader");
-  scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:240,height:240}},
-    txt=>onScan(txt), ()=>{})
-    .catch(e=>{alert('Camera error: '+e+'\nUse the manual EID box below, or a USB barcode scanner.');scanner=null;});
-}
-function stopScan(){ if(scanner){scanner.stop().then(()=>{scanner.clear();scanner=null;}).catch(()=>{scanner=null;}); } }
-function onScan(txt){
-  const now=Date.now();
-  if(txt===lastScanVal && now-lastScanTs<2500) return; // debounce same code
-  lastScanVal=txt; lastScanTs=now;
-  checkEid(txt);
-}
+/* ---------- SCAN / CHECK ---------- */
 function checkEid(raw){
   if(!raw) return;
+  const now=Date.now();
+  if(raw===lastScanVal && now-lastScanTs<1200){focusScan();return;} // debounce double-fire
+  lastScanVal=raw; lastScanTs=now;
   const eid=normEid(raw);
   const hit=findEid(eid);
   const ok=!!hit;
-  const rec={ts:new Date().toISOString(),eid:eid,name:ok?hit.name:'',ok:ok};
-  log.unshift(rec); save(); updateCounts();
+  const rec={ts:new Date().toISOString(),eid:eid,name:ok?hit.name:'',ok:ok,synced:false};
+  log.unshift(rec); saveLog(); updateCounts();
+  postLog(rec);
   showResult(ok, ok?hit.name:'', eid);
   if(document.getElementById('log').classList.contains('active')) renderLog();
+  focusScan();
 }
 function showResult(ok,name,eid){
   const r=document.getElementById('result');
@@ -321,52 +268,42 @@ function beep(ok){try{actx=actx||new(window.AudioContext||window.webkitAudioCont
   o.frequency.value=ok?880:220;g.gain.value=.15;o.start();
   setTimeout(()=>{o.stop();},ok?150:400);}catch(e){}}
 
-/* ---------- LOG ---------- */
+/* ---------- LOG -> GOOGLE SHEET ---------- */
+function postLog(rec){
+  if(!LOG_POST_URL){return;} // not configured yet — local log only
+  const body=new URLSearchParams({ts:rec.ts,eid:rec.eid,name:rec.name,result:rec.ok?'ALLOWED':'DENIED'});
+  fetch(LOG_POST_URL,{method:'POST',body,mode:'no-cors'})
+    .then(()=>{rec.synced=true;saveLog();if(document.getElementById('log').classList.contains('active'))renderLog();})
+    .catch(()=>{/* stays synced:false, retried on next flush */});
+}
+function flushUnsynced(){
+  if(!LOG_POST_URL)return;
+  log.filter(r=>!r.synced).forEach(postLog);
+}
 function renderLog(){
   const tb=document.getElementById('logBody'); tb.innerHTML='';
   log.forEach(r=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${new Date(r.ts).toLocaleString()}</td><td>${esc(r.eid)}</td>
       <td>${esc(r.name||'—')}</td>
-      <td><span class="pill ${r.ok?'ok':'no'}">${r.ok?'ALLOWED':'DENIED'}</span></td>`;
+      <td><span class="pill ${r.ok?'ok':'no'}">${r.ok?'ALLOWED':'DENIED'}</span></td>
+      <td>${LOG_POST_URL?(r.synced?'✓':'…'):'—'}</td>`;
     tb.appendChild(tr);
   });
   document.getElementById('logCount').textContent=log.length;
+  const st=document.getElementById('cloudLogState');
+  if(st)st.textContent=LOG_POST_URL?'':'(Sheet logging not configured yet — local only.)';
 }
-function clearLog(){ if(confirm('Clear the entire scan log? Export first if you need it.')){log=[];save();renderLog();updateCounts();} }
+function clearLog(){ if(confirm('Clear the LOCAL log on this device? The Google Sheet copy is unaffected. Export first if you need it.')){log=[];saveLog();renderLog();updateCounts();} }
 function exportLog(){
   let csv='Timestamp,EID,Name,Result\n';
   log.slice().reverse().forEach(r=>{
     csv+=[JSON.stringify(new Date(r.ts).toLocaleString()),JSON.stringify(r.eid),
-          JSON.stringify(r.name||''),r.ok?'ALLOWED':'DENIED'].join(',')+'\n';
-  });
+          JSON.stringify(r.name||''),r.ok?'ALLOWED':'DENIED'].join(',')+'\n';});
   dl(csv,'scan_log_'+stamp()+'.csv','text/csv');
 }
 
-/* ---------- SHARE ---------- */
-function exportList(){ dl(JSON.stringify({type:'sac_allowlist',list},null,2),'allowlist_'+stamp()+'.json','application/json'); }
-function importList(ev){
-  const f=ev.target.files[0]; if(!f)return;
-  const rd=new FileReader();
-  rd.onload=()=>{ try{
-    const d=JSON.parse(rd.result); const incoming=Array.isArray(d)?d:d.list;
-    if(!Array.isArray(incoming))throw 0;
-    mergeList(incoming);
-  }catch(e){alert('That file is not a valid allow-list export.');} ev.target.value=''; };
-  rd.readAsText(f);
-}
-function mergeList(incoming){
-  let added=0;
-  incoming.forEach(p=>{const eid=normEid(p.eid);if(eid&&p.name&&!list.some(x=>x.eid===eid)){list.push({name:p.name,eid});added++;}});
-  save(); renderList(); updateCounts();
-  alert('Imported. '+added+' new added, '+(incoming.length-added)+' already present. List now '+list.length+'.');
-}
-function refreshSync(){ const b=document.getElementById('syncBox'); b.value=btoa(unescape(encodeURIComponent(JSON.stringify(list)))); b.select(); try{document.execCommand('copy');}catch(e){} }
-function loadSync(){ try{ const raw=document.getElementById('syncBox').value.trim();
-  const arr=JSON.parse(decodeURIComponent(escape(atob(raw)))); mergeList(arr);
-  }catch(e){alert('Could not read that sync code. Make sure you pasted the whole thing.');} }
-
-/* ---------- QR generation ---------- */
+/* ---------- QR ---------- */
 function qrOne(eid,name){
   const w=window.open('','_blank');
   w.document.write(`<html><head><title>QR ${eid}</title></head><body style="text-align:center;font-family:sans-serif;padding:30px">
@@ -376,13 +313,12 @@ function qrOne(eid,name){
     </body></html>`); w.document.close();
 }
 function printQRs(){
-  const all=allowList();
-  if(!all.length){alert('The allow-list is empty.');return;}
+  if(!remoteList.length){alert('The allow-list is empty.');return;}
   const w=window.open('','_blank');
-  let body=all.map(p=>`<div class="qrprint"><div class="qc" data-eid="${esc(p.eid)}"></div><div>${esc(p.name)}</div><div>EID ${esc(p.eid)}</div></div>`).join('');
+  let body=remoteList.map(p=>`<div class="qrprint"><div class="qc" data-eid="${esc(normEid(p.eid))}"></div><div>${esc(p.name)}</div><div>EID ${esc(normEid(p.eid))}</div></div>`).join('');
   w.document.write(`<html><head><title>QR Badges</title><style>
     body{font-family:sans-serif;padding:16px}.qrprint{display:inline-block;margin:12px;text-align:center;font-size:12px;page-break-inside:avoid}
-    </style></head><body><h2>Secure Area QR Badges (${all.length})</h2>${body}
+    </style></head><body><h2>Secure Area QR Badges (${remoteList.length})</h2>${body}
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"><\/script>
     <script>document.querySelectorAll('.qc').forEach(el=>new QRCode(el,{text:el.dataset.eid,width:150,height:150}));
     setTimeout(()=>window.print(),700);<\/script></body></html>`);
@@ -392,24 +328,22 @@ function printQRs(){
 /* ---------- utils ---------- */
 function dl(content,fname,mime){const b=new Blob([content],{type:mime});const a=document.createElement('a');
   a.href=URL.createObjectURL(b);a.download=fname;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
-function stamp(){const d=new Date();return d.toISOString().slice(0,19).replace(/[:T]/g,'-');}
-function updateCounts(){const n=allowList().length;
-  const sc=document.getElementById('scanCount');if(sc)sc.textContent=n;
-  const lc=document.getElementById('listCount');if(lc)lc.textContent=n;
-  const tag=document.getElementById('srcTag');
-  if(tag)tag.textContent=remoteList.length?('('+remoteList.length+' from shared source + '+list.length+' local)'):'';}
+function stamp(){return new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');}
+function updateCounts(){const sc=document.getElementById('scanCount');if(sc)sc.textContent=remoteList.length;
+  const lc=document.getElementById('listCount');if(lc)lc.textContent=remoteList.length;
+  const tag=document.getElementById('srcTag');if(tag)tag.textContent=remoteList.length?'shared':'';}
 
-// load saved config into the Admin controls
-function initCfg(){
-  const u=document.getElementById('csvUrl');if(u)u.value=cfg.csvUrl||'';
-  const a=document.getElementById('autoRefresh');if(a)a.checked=!!cfg.auto;
-  const m=document.getElementById('autoMins');if(m)m.value=cfg.mins||5;
-  if(remoteList.length)setStatus('Cached: '+remoteList.length+' from shared source (press Refresh for latest).');
-  armAuto();
-  if(cfg.csvUrl)fetchRemote(false); // pull latest on open
-}
-
-initCfg(); updateCounts(); renderList();
+/* ---------- init ---------- */
+document.getElementById('minsLabel').textContent=REFRESH_MINS;
+document.getElementById('cfgSummary').textContent =
+  'Log to Sheet: '+(LOG_POST_URL?'ENABLED':'not configured') + ' · Refresh every '+REFRESH_MINS+' min';
+applyAdminUI();
+armAuto();
+fetchRemote(false);
+flushUnsynced();
+updateCounts(); renderList(); renderLog(); focusScan();
+// keep the scan box focused so a USB/HID scanner always lands there
+document.addEventListener('click',()=>{if(document.getElementById('scan').classList.contains('active'))focusScan();});
 </script>
 </body>
 </html>
